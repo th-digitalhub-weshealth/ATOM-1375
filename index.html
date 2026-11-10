@@ -203,7 +203,18 @@
   .tray-head h2 { font-weight: 500; font-size: 20px; line-height: 24px; letter-spacing: -0.3px; color: var(--burgundy); }
   .icon-btn { width: 44px; height: 44px; margin: -12px -12px -12px 0; display: grid; place-items: center; color: var(--burgundy); }
   .items-wrap { flex: 0 1 auto; min-height: 96px; display: flex; flex-direction: column; padding-bottom: 16px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
-  .items { min-height: 0; max-height: 300px; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 16px; scrollbar-width: none; }
+  /* Scroll cue: 5 rows + a slice through the 6th row's name (5 × 40 + 5 × 16 gap + 13 = 293px),
+     plus a 32px fade masked onto the list itself. The fade is removed once scrolled to the end. */
+  @property --fade { syntax: '<length>'; inherits: false; initial-value: 0px; }
+  .items {
+    min-height: 0; max-height: 293px; overflow-y: auto; overscroll-behavior: contain;
+    display: flex; flex-direction: column; gap: 16px; scrollbar-width: none;
+    --fade: 0px;
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
+            mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
+    transition: --fade 200ms var(--ease-out);
+  }
+  .items.has-more { --fade: 32px; }
   .items::-webkit-scrollbar { display: none; }
   .tray .totals { flex: none; }
   .tray > :not(.tray-head) { touch-action: pan-y; }
@@ -417,6 +428,7 @@
     // Mobile tray
     trayItems.innerHTML = items.map(rowHTML).join('');
     trayItems.scrollTop = 0;
+    updateScrollCue();
     $('#trayTotals').innerHTML = totalsHTML(t);
 
     // Desktop card
@@ -434,6 +446,15 @@
 
     document.querySelectorAll('[data-cart]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.cart === state.cart)));
   }
+
+  // Fade the bottom of the tray list only while there is more to scroll to
+  function updateScrollCue() {
+    const el = trayItems;
+    const more = el.scrollHeight - el.clientHeight - el.scrollTop > 1;
+    el.classList.toggle('has-more', more);
+  }
+  trayItems.addEventListener('scroll', updateScrollCue, { passive: true });
+  window.addEventListener('resize', updateScrollCue);
 
   function setMore(open, restCount) {
     state.more = open;
